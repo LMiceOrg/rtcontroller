@@ -7,9 +7,10 @@ int equal(char cha, char chb)
     return cha == chb;
 }
 
-char *strsub(char* source, char *sub)
+char *strsub(char* source, const char *sub)
 {
-    char *temp, *temq, *find = source;
+    char *temp, *find = source;
+    const char* temq = sub;
     while (*find) {
         for (temp = find, temq = sub; *temq && equal(*temp, *temq); temp++, temq++);
         if (*temq == '\0') return find;
@@ -38,9 +39,9 @@ int Analyze_order(char *instruct, int *axis, int *angle)
     if ((temp = strsub(instruct, "GO")) != 0) {
         temp += 1;
         while (*temp != '\0'&& *temp++ == ' ');
-        if (*temp = 'x'|| *temp = 'X') *axis=0;
-           else if (*temp = 'y'|| *temp = 'Y') *axis=1;
-            else if (*temp = 'z'|| *temp = 'Z') *axis=2;
+        if (*temp == 'x'|| *temp == 'X') *axis=0;
+           else if (*temp == 'y'|| *temp == 'Y') *axis=1;
+            else if (*temp == 'z'|| *temp == 'Z') *axis=2;
              else return 2;
         temp += 1;
         while (*temp != '\0'&& *temp++ == ' ');
@@ -61,4 +62,5 @@ int Analyze_order(char *instruct, int *axis, int *angle)
     if ((temp = strsub(instruct, "finished")) != 0) {
         return 5;
     }
+    return 2;
 }

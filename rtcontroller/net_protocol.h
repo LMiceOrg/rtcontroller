@@ -5,6 +5,7 @@
 #include <mtig/mtig_host.h>
 #include <string.h>
 
+//enum Net
 //find the first appearance
 int equal(char , char );
 char *strsub(char*, char *);

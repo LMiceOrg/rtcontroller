@@ -4,7 +4,7 @@
 
 #include "mpc07.h"
 
-#if defined(__WIN32)
+#if defined(_WIN32)
 #include <WinBase.h>
 #pragma comment(lib, "Kernel32.lib")
 #else
@@ -295,7 +295,7 @@ int CMPC07Controller::CheckWork()
 
 void CMPC07Controller::AfterAWhile()
 {
-#if defined(__WIN32)
+#if defined(_WIN32)
     Sleep(100); //100-ms
 #else
     usleep(100*1000);//100-ms
@@ -305,7 +305,7 @@ void CMPC07Controller::AfterAWhile()
 double CMPC07Controller::TimeNow()
 {
     double t;
-#if defined(__WIN32)
+#if defined(_WIN32)
     DWORD dw = GetTickCount();
     t = dw;
     t = t / 1000;
