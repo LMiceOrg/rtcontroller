@@ -1,1 +1,10 @@
-test.txt
+#text files
+*.txt
+
+
+
+#project backup files
+*.pro.*
+
+#build intermedia folder
+build-*
