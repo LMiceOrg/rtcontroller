@@ -17,7 +17,6 @@ HEADERS += \
     mpc07/mpc07.h
 
 
-INCLUDEPATH += D:\Program_Files\pyth\include \
+INCLUDEPATH += D:\Program Files\pyth\include \
 
-
-LIBS += -LD:\Program_Files\pyth\libs -lpython27
+LIBS += -LD:\Program Files\pyth\libs -lpython27
