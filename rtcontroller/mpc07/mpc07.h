@@ -1,4 +1,4 @@
-// LoadDll.h: interface for the CLoadDll class.
+// mpc07.h: interface for the CMPC07Controller class.
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -10,8 +10,8 @@
 #endif // _MSC_VER > 1000
 
 //////////////////////////////////////////////////////////////////////
-//DLLº¯ÊıÖ¸ÕëÀàĞÍ¶¨Òå
-//¿ØÖÆ¿¨ºÍÖáÉèÖÃº¯Êı
+//DLLå‡½æ•°æŒ‡é’ˆç±»å‹å®šä¹‰
+//æ§åˆ¶å¡å’Œè½´è®¾ç½®å‡½æ•°
 typedef int (CALLBACK* LPFNDLL_auto_set)(void);
 typedef int (CALLBACK* LPFNDLL_init_board)(void);
 typedef int (CALLBACK* LPFNDLL_get_max_axe)(void);
@@ -29,7 +29,7 @@ typedef double (CALLBACK* LPFNDLL_get_vector_conspeed)();
 typedef int (CALLBACK* LPFNDLL_get_vector_profile)(double *vec_vl , double *vec_vh ,double *vec_ad);
 typedef double (CALLBACK* LPFNDLL_get_rate)(int ch);
 
-//ÔË¶¯Ö¸Áîº¯Êı
+//è¿åŠ¨æŒ‡ä»¤å‡½æ•°
 typedef int (CALLBACK* LPFNDLL_con_pmove)(int ch,long step);
 typedef int (CALLBACK* LPFNDLL_fast_pmove)(int ch,long step);
 typedef int (CALLBACK* LPFNDLL_con_pmove2)(int ch1,long step1,int ch2,long step2);
@@ -53,7 +53,7 @@ typedef int (CALLBACK* LPFNDLL_con_line3)(int ch1,long pos1,int ch2,long pos2,in
 typedef int (CALLBACK* LPFNDLL_fast_line2)(int CHX,long pos1,int CHY, long pos2);
 typedef int (CALLBACK* LPFNDLL_fast_line3)(int ch1,long pos1,int ch2,long pos2,int ch3,long pos3);
 
-//ÖÆ¶¯º¯Êı
+//åˆ¶åŠ¨å‡½æ•°
 typedef void (CALLBACK* LPFNDLL_sudden_stop)(int ch);
 typedef void (CALLBACK* LPFNDLL_sudden_stop2)(int ch1,int ch2);
 typedef void (CALLBACK* LPFNDLL_sudden_stop3)(int ch1,int ch2,int ch3);
@@ -61,7 +61,7 @@ typedef void (CALLBACK* LPFNDLL_decel_stop)(int ch);
 typedef void (CALLBACK* LPFNDLL_decel_stop2)(int ch1,int ch2);
 typedef void (CALLBACK* LPFNDLL_decel_stop3)(int ch1,int ch2,int ch3);
 
-//Î»ÖÃºÍ×´Ì¬ÉèÖÃº¯Êı
+//ä½ç½®å’ŒçŠ¶æ€è®¾ç½®å‡½æ•°
 typedef long (CALLBACK* LPFNDLL_set_abs_pos)(int ch,long pos);
 typedef int (CALLBACK* LPFNDLL_reset_pos)(int ch);
 typedef int (CALLBACK* LPFNDLL_reset_cmd_counter)();
@@ -75,7 +75,7 @@ typedef int (CALLBACK* LPFNDLL_get_abs_pos)(int ch,long *pos);
 typedef int (CALLBACK* LPFNDLL_get_rel_pos)(int ch,long *pos);
 typedef long (CALLBACK* LPFNDLL_get_cur_dir)(int ch);
 
-//×´Ì¬²éÑ¯º¯Êı
+//çŠ¶æ€æŸ¥è¯¢å‡½æ•°
 typedef int (CALLBACK* LPFNDLL_check_status)(int ch);
 typedef int (CALLBACK* LPFNDLL_check_done)(int ch);
 typedef int (CALLBACK* LPFNDLL_check_limit)(int ch);
@@ -85,13 +85,13 @@ typedef int (CALLBACK* LPFNDLL_check_alarm)(int ch);
 typedef int (CALLBACK* LPFNDLL_check_IC)(int cardno);
 typedef int (CALLBACK* LPFNDLL_get_cmd_counter)();
 
-//I/O¿Ú²Ù×÷º¯Êı
+//I/Oå£æ“ä½œå‡½æ•°
 typedef int (CALLBACK* LPFNDLL_checkin_byte)(int cardno);
 typedef int (CALLBACK* LPFNDLL_checkin_bit)(int cardno,int bitno);
 typedef int (CALLBACK* LPFNDLL_outport_bit)(int cardno,int bitno,int status);
 typedef int (CALLBACK* LPFNDLL_outport_byte)(int cardno,int bytedata);
 
-//ÆäËüº¯Êı
+//å…¶å®ƒå‡½æ•°
 typedef int (CALLBACK* LPFNDLL_set_backlash)(int axis,int blash);
 typedef int (CALLBACK* LPFNDLL_start_backlash)(int axis);
 typedef int (CALLBACK* LPFNDLL_end_backlash)(int axis);
@@ -106,19 +106,77 @@ typedef int (CALLBACK* LPFNDLL_get_last_err)();
 typedef int (CALLBACK* LPFNDLL_get_err)(int index,int *data);
 typedef int (CALLBACK* LPFNDLL_reset_err)();
 
-//mpc.dllº¯Êı·â×°Àà
-class CLoadDll  
+enum mpc_state {
+    MPC_UNKNOWN = 0,    //æ²¡æœ‰åŠ è½½åŠ¨æ€åº“
+    MPC_LOADED,         //å·²ç»åŠ è½½å®ŒæˆåŠ¨æ€åº“.æ²¡æœ‰åˆå§‹åŒ–
+    MPC_INITED,         //å·²ç»åˆå§‹åŒ–ï¼Œæ²¡æœ‰å·¥ä½œæˆ–è€…é€€å‡ºå·¥ä½œçº¿ç¨‹
+    MPC_WORKING         //æ­£åœ¨å·¥ä½œ,åˆ›å»ºå·¥ä½œçº¿ç¨‹
+
+};
+
+enum mpc_error {
+    MPCE_SUCCESS = 0,   //æ­£å¸¸
+    MPCE_ERROR,         //é”™è¯¯
+    MPCE_ENOCARD,       //å¡é”™è¯¯
+    MPCE_EMULTICARD,    //å¤šå¼ å¡
+    MPCE_EINIT,         //åˆå§‹åŒ–é”™è¯¯
+
+    //initboard
+    MPCE_ELOADLIBRARY,  //è½½å…¥åŠ¨æ€åº“é”™è¯¯
+    MPCE_EPROCADDRESS,  //å‡½æ•°æŒ‡é’ˆé”™è¯¯
+
+    //working
+    MPCE_EWORKING
+};
+
+//mpc.dllå‡½æ•°å°è£…ç±»
+class CMPC07Controller
 {
 public:
-	CLoadDll();
-	virtual ~CLoadDll();
+    CMPC07Controller();
+    ~CMPC07Controller();
+    mpc_state state() const;
+    mpc_error canWork();
+    mpc_error stop();
+    //æ­£å¸¸å·¥ä½œæ—¶åªéœ€è°ƒç”¨æ­¤å‡½æ•°
+    mpc_error work(double x, double y);
+
 private:
+    mpc_state m_state;  //æ§åˆ¶å™¨çŠ¶æ€
 	HINSTANCE hDLL;
+    int axe_size;
+    int card_size;
+
+    double max_speed;
+    double con_speed;
+    double fast_low;
+    double fast_high;
+    double fast_acc;
+
+    //è½´å½“å‰çŠ¶æ€
+    long xpos;
+    long ypos;
+    //è¿åŠ¨ç›®æ ‡
+    long xpuls;
+    long ypuls;
+    //è¿åŠ¨è¯¯å·®åˆ¤æ–­æ ‡å‡†
+    double delta;
+    //è¿åŠ¨æ—¶é—´åˆ¤æ–­
+    double beginTime;
+    double duration;
+
+
 	int LoadDllFun();
+    int InitBoard();
+    int StartWork();
+    int CheckWork();
+    void AfterAWhile();
+    double TimeNow();
 public:
 	///////////////////////////////////
-	//º¯ÊıÖ¸Õë¶¨Òå
-	//¿ØÖÆ¿¨ºÍÖáÉèÖÃº¯Êı
+	//å‡½æ•°æŒ‡é’ˆå®šä¹‰
+	//æ§åˆ¶å¡å’Œè½´è®¾ç½®å‡½æ•°
+    //////////////////////////////////
 	LPFNDLL_auto_set auto_set;
 	LPFNDLL_init_board init_board;
 	LPFNDLL_get_max_axe get_max_axe;
@@ -136,7 +194,7 @@ public:
 	LPFNDLL_get_vector_profile get_vector_profile;
 	LPFNDLL_get_rate get_rate;
 
-	//ÔË¶¯º¯Êı
+	//è¿åŠ¨å‡½æ•°
 	LPFNDLL_con_pmove con_pmove;
 	LPFNDLL_fast_pmove fast_pmove;
 	LPFNDLL_con_pmove2 con_pmove2;
@@ -160,7 +218,7 @@ public:
 	LPFNDLL_fast_line2 fast_line2;
 	LPFNDLL_fast_line3 fast_line3;
 
-	//ÖÆ¶¯º¯Êı
+	//åˆ¶åŠ¨å‡½æ•°
 	LPFNDLL_sudden_stop sudden_stop;
 	LPFNDLL_sudden_stop2 sudden_stop2;
 	LPFNDLL_sudden_stop3 sudden_stop3;
@@ -168,7 +226,7 @@ public:
 	LPFNDLL_decel_stop2 decel_stop2;
 	LPFNDLL_decel_stop3 decel_stop3;
 	
-	//Î»ÖÃºÍ×´Ì¬ÉèÖÃº¯Êı
+	//ä½ç½®å’ŒçŠ¶æ€è®¾ç½®å‡½æ•°
 	LPFNDLL_set_abs_pos set_abs_pos;
 	LPFNDLL_reset_pos reset_pos;
 	LPFNDLL_reset_cmd_counter reset_cmd_counter;
@@ -182,7 +240,7 @@ public:
 	LPFNDLL_get_rel_pos get_rel_pos;
 	LPFNDLL_get_cur_dir get_cur_dir;
 
-	//×´Ì¬²éÑ¯º¯Êı
+	//çŠ¶æ€æŸ¥è¯¢å‡½æ•°
 	LPFNDLL_check_status check_status;
 	LPFNDLL_check_done check_done;
 	LPFNDLL_check_limit check_limit;
@@ -192,13 +250,13 @@ public:
 	LPFNDLL_check_IC check_IC;
 	LPFNDLL_get_cmd_counter get_cmd_counter;
 
-	//I/O¿Ú²Ù×÷º¯Êı
+	//I/Oå£æ“ä½œå‡½æ•°
 	LPFNDLL_checkin_byte checkin_byte;
 	LPFNDLL_checkin_bit checkin_bit;
 	LPFNDLL_outport_bit outport_bit;
 	LPFNDLL_outport_byte outport_byte;
 
-	//ÆäËüº¯Êı
+	//å…¶å®ƒå‡½æ•°
 	LPFNDLL_set_backlash set_backlash;
 	LPFNDLL_start_backlash start_backlash;
 	LPFNDLL_end_backlash end_backlash;
@@ -209,7 +267,7 @@ public:
 	LPFNDLL_get_sys_ver get_sys_ver;
 	LPFNDLL_get_card_ver get_card_ver;
 
-	//´íÎó´úÂë²Ù×÷º¯Êı
+	//é”™è¯¯ä»£ç æ“ä½œå‡½æ•°
 	LPFNDLL_get_last_err get_last_err;
 	LPFNDLL_get_err get_err;
 	LPFNDLL_reset_err reset_err;

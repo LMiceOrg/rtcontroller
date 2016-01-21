@@ -1,40 +1,124 @@
-// LoadDll.cpp: implementation of the CLoadDll class.
+// mpc07.cpp: implementation of the CLoadDll class.
 //
 //////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-#include "LoadDll.h"
+#include "mpc07.h"
 
-#ifdef _DEBUG
-#undef THIS_FILE
-static char THIS_FILE[]=__FILE__;
-#define new DEBUG_NEW
+#if defined(__WIN32)
+#include <WinBase.h>
+#pragma comment(lib, "Kernel32.lib")
+#else
+#include <unistd.h>
+#include <sys/time.h>
 #endif
+
+#include <math.h>
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-CLoadDll::CLoadDll()
+CMPC07Controller::CMPC07Controller()
 {
-	LoadDllFun();			//º”‘ÿDLL
+    m_state = MPC_UNKNOWN;
+    hDLL = NULL;
+    axe_size = 0;
+    card_size = 0;
+
+    max_speed = 10000; //pps
+    con_speed = 1000;
+    fast_low = 100;
+    fast_high = 6000;
+    fast_acc = 3000;
+    delta = 500;
+
+    beginTime = 0;  //sec
+    duration = 10;
+
+	LoadDllFun();			//Âä†ËΩΩDLL
 }
 
-CLoadDll::~CLoadDll()
+CMPC07Controller::~CMPC07Controller()
 {
 	if (hDLL != NULL)
 	{
-		FreeLibrary(hDLL);	// Õ∑≈DLL
-	}
+		FreeLibrary(hDLL);	//ÈáäÊîæDLL
+    }
 }
 
-int CLoadDll::LoadDllFun()
+mpc_state CMPC07Controller::state() const
 {
-	hDLL = LoadLibrary("MPC07");	//º”‘ÿmpc07.dll
+    return m_state;
+}
+
+#define MPC_FAILED(x) ((x) != MPCE_SUCCESS)
+
+mpc_error CMPC07Controller::canWork()
+{
+    int ret = MPCE_ERROR;
+    switch(m_state) {
+    case MPC_UNKNOWN:
+        ret = LoadDllFun();
+        if (MPC_FAILED(ret)) {
+            break;
+        }
+        m_state = MPC_LOADED;
+    case MPC_LOADED:
+        ret = InitBoard();
+        if(MPC_FAILED(ret)) {
+            break;
+        }
+        m_state = MPC_INITED;
+    case MPC_INITED:
+        ret = MPCE_SUCCESS;
+        break;
+    case MPC_WORKING:
+        ret = CheckWork();
+        if(MPC_FAILED(ret)) {
+            break;
+        }
+        m_state = MPC_INITED;
+        break;
+    }
+
+    return ret;
+}
+
+mpc_error CMPC07Controller::stop()
+{
+    sudden_stop2(1,2);
+    return MPCE_SUCCESS;
+}
+
+mpc_error CMPC07Controller::work(double x, double y)
+{
+    mpc_error ret = canWork();
+    if( ret ==MPCE_SUCCESS) {
+
+        StartWork();
+        m_state = MPC_WORKING;
+
+        if(x != 0 && y == 0) {          // 1. only X-axe
+            fast_pmove(1, (long)x);
+        } else if(x == 0 && y != 0) {   // 2. only Y-axe
+            fast_pmove(2, (long)y);
+        } else if(x != 0 && y != 0) {   // 3. both of X,Y axes
+            fast_pmove2(1, (long)x, 2, (long)y);
+        } else {
+            m_state = MPC_INITED;
+        }
+    }
+    return ret;
+}
+
+int CMPC07Controller::LoadDllFun()
+{
+    int ret = MPCE_SUCCESS;
+    hDLL = LoadLibraryA("MPC07");	//Âä†ËΩΩmpc07.dll
 	if (hDLL != NULL)
 	{
 		///////////////////////////////////////////////////////////
-		//“‘œ¬»°µ√∏˜∏ˆDLL∫Ø ˝÷∏’Î
+		//‰ª•‰∏ãÂèñÂæóÂêÑ‰∏™DLLÂáΩÊï∞ÊåáÈíà
 		auto_set = (LPFNDLL_auto_set)GetProcAddress(hDLL,"auto_set");
 		init_board = (LPFNDLL_init_board)GetProcAddress(hDLL,"init_board");
 		get_max_axe = (LPFNDLL_get_max_axe)GetProcAddress(hDLL,"get_max_axe");
@@ -75,7 +159,7 @@ int CLoadDll::LoadDllFun()
 		fast_line2 = (LPFNDLL_fast_line2)GetProcAddress(hDLL,"fast_line2");
 		fast_line3 = (LPFNDLL_fast_line3)GetProcAddress(hDLL,"fast_line3");
 
-		//÷∆∂Ø∫Ø ˝
+		//Âà∂Âä®ÂáΩÊï∞
 		sudden_stop = (LPFNDLL_sudden_stop)GetProcAddress(hDLL,"sudden_stop");
 		sudden_stop2 = (LPFNDLL_sudden_stop2)GetProcAddress(hDLL,"sudden_stop2");
 		sudden_stop3 = (LPFNDLL_sudden_stop3)GetProcAddress(hDLL,"sudden_stop3");
@@ -83,7 +167,7 @@ int CLoadDll::LoadDllFun()
 		decel_stop2 = (LPFNDLL_decel_stop2)GetProcAddress(hDLL,"decel_stop2");
 		decel_stop3 = (LPFNDLL_decel_stop3)GetProcAddress(hDLL,"decel_stop3");
 
-		//Œª÷√∫Õ◊¥Ã¨…Ë÷√∫Ø ˝
+		//‰ΩçÁΩÆÂíåÁä∂ÊÄÅËÆæÁΩÆÂáΩÊï∞
 		set_abs_pos = (LPFNDLL_set_abs_pos)GetProcAddress(hDLL,"set_abs_pos");
 		reset_pos = (LPFNDLL_reset_pos)GetProcAddress(hDLL,"reset_pos");
 		reset_cmd_counter = (LPFNDLL_reset_cmd_counter)GetProcAddress(hDLL,"reset_cmd_counter");
@@ -97,7 +181,7 @@ int CLoadDll::LoadDllFun()
 		get_rel_pos = (LPFNDLL_get_rel_pos)GetProcAddress(hDLL,"get_rel_pos");
 		get_cur_dir = (LPFNDLL_get_cur_dir)GetProcAddress(hDLL,"get_cur_dir");
 
-		//◊¥Ã¨≤È—Ø∫Ø ˝
+		//Áä∂ÊÄÅÊü•ËØ¢ÂáΩÊï∞
 		check_status = (LPFNDLL_check_status)GetProcAddress(hDLL,"check_status");
 		check_done = (LPFNDLL_check_done)GetProcAddress(hDLL,"check_done");
 		check_limit = (LPFNDLL_check_limit)GetProcAddress(hDLL,"check_limit");
@@ -112,7 +196,7 @@ int CLoadDll::LoadDllFun()
 		outport_bit = (LPFNDLL_outport_bit)GetProcAddress(hDLL,"outport_bit");
 		outport_byte = (LPFNDLL_outport_byte)GetProcAddress(hDLL,"outport_byte");
 
-		//∆‰À¸∫Ø ˝
+		//ÂÖ∂ÂÆÉÂáΩÊï∞
 		set_backlash = (LPFNDLL_set_backlash)GetProcAddress(hDLL,"set_backlash");
 		start_backlash = (LPFNDLL_start_backlash)GetProcAddress(hDLL,"start_backlash");
 		end_backlash = (LPFNDLL_end_backlash)GetProcAddress(hDLL,"end_backlash");
@@ -123,26 +207,113 @@ int CLoadDll::LoadDllFun()
 		get_sys_ver = (LPFNDLL_get_sys_ver)GetProcAddress(hDLL,"get_sys_ver");
 		get_card_ver = (LPFNDLL_get_card_ver)GetProcAddress(hDLL,"get_card_ver");
 
-		//¥ÌŒÛ¥˙¬Î≤Ÿ◊˜∫Ø ˝
+		//ÈîôËØØ‰ª£Á†ÅÊìç‰ΩúÂáΩÊï∞
 		get_last_err = (LPFNDLL_get_last_err)GetProcAddress(hDLL,"get_last_err");
 		get_err = (LPFNDLL_get_err)GetProcAddress(hDLL,"get_err");
 		reset_err = (LPFNDLL_reset_err)GetProcAddress(hDLL,"reset_err");
 
 		////////////////////////////////////////////////////////////////////
-		//»ÙŒﬁ∑®»°µ√∫Ø ˝÷∏’Î
-		if (!auto_set||!init_board)
-		{
+		//Ëã•Êó†Ê≥ïÂèñÂæóÂáΩÊï∞ÊåáÈíà
+        if (!auto_set||!init_board) {
 			// handle the error
 			FreeLibrary(hDLL);
-			return -1;
+            ret = MPCE_EPROCADDRESS;
 		}
-		else
-		{
-			return 0;
-		}
-	}
-	else
-	{
-		return -1;
-	}
+    } else {
+        ret = MPCE_ELOADLIBRARY;
+    }
+
+    return ret;
+
+}
+
+int CMPC07Controller::InitBoard()
+{
+    int ret = MPCE_SUCCESS;
+
+    axe_size=auto_set();			//Ëá™Âä®ËÆæÁΩÆ
+    if(axe_size > 0) {
+        card_size = init_board();   //ÂàùÂßãÂåñ
+        if(card_size <= 0) {
+            ret = MPCE_EINIT;       //ÂàùÂßãÂåñÈîôËØØ
+        }
+    } else {
+        if(axe_size == -1)
+            ret = MPCE_ENOCARD;     //Ê£ÄÊµã‰∏çÂà∞Âç°
+        else if(axe_size == -10)
+            ret = MPCE_EMULTICARD;  //‰ΩøÁî®Â§öÂç°Êê≠ÈÖç‰∏çÂΩì
+        else
+            ret = MPCE_ERROR;
+    }
+
+    int chi;
+    for(chi=0; chi< axe_size; ++chi) {
+        set_outmode(chi, 1, 0); //ËÑâÂÜ≤ËæìÂá∫Ê®°ÂºèËÆæÁΩÆ(1 ‰∏∫ËÑâÂÜ≤/ÊñπÂêëÊñπÂºè,0 ‰∏∫ÂèåËÑâÂÜ≤ÊñπÂºè);
+        //ËÆæÁΩÆÊØè‰∏™ËΩ¥ÁöÑÊúÄÂ§ßÈÄüÂ∫¶
+        set_maxspeed(chi, max_speed); //pps
+        //ËÆæÂÆöÂ∏∏ÈÄüËøêÂä®
+        set_conspeed(chi, con_speed);
+        //ËÆæÂÆöÂø´ÈÄüËøêÂä®
+        set_profile(chi, fast_low, fast_high, fast_acc);
+
+    }
+
+    return ret;
+}
+
+int CMPC07Controller::StartWork()
+{
+    int ret = MPCE_SUCCESS;
+    xpos = 0;
+    ypos = 0;
+    sudden_stop2(1,2);
+    reset_pos(1);
+    reset_pos(2);
+
+    beginTime = TimeNow();
+
+    return ret;
+}
+
+int CMPC07Controller::CheckWork()
+{
+    int ret = MPCE_SUCCESS;
+    double now = TimeNow();
+    get_rel_pos(1, &xpos);
+    get_rel_pos(2, &ypos);
+    if((fabs(xpos - xpuls) <delta &&
+            fasb(ypos - ypuls) < delta) ||
+        ( now - beginTime < duration ) ) {
+        //Ok
+        AfterAWhile();
+        sudden_stop2(1,2);
+    } else {
+        ret = MPCE_EWORKING;
+    }
+    return ret;
+}
+
+void CMPC07Controller::AfterAWhile()
+{
+#if defined(__WIN32)
+    Sleep(100); //100-ms
+#else
+    usleep(100*1000);//100-ms
+#endif
+}
+
+double CMPC07Controller::TimeNow()
+{
+    double t;
+#if defined(__WIN32)
+    DWORD dw = GetTickCount();
+    t = dw;
+    t = t / 1000;
+#else
+    struct timeval tp;
+
+    gettimeofday(&tp, NULL);
+    t = tp.tv_sec + (double)tp.tv_usec / 1000000.;
+#endif
+    return t;
 }
