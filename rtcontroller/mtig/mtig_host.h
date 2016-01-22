@@ -11,7 +11,7 @@ extern "C" {
 
 #pragma pack(1)
 
-typedef struct {
+typedef struct mtig_data_t_ {
     float accX,accY,accZ;
     float gyrX,gyrY,gyrZ;
     float magX, magY, magZ;
@@ -21,6 +21,12 @@ typedef struct {
     unsigned char status;
     unsigned short sample_counter;
 } mtig_data_t;
+
+typedef struct mtig_raw_t_ {
+    uint32_t i32[18];
+    uint8_t i8;
+    uint16_t i16;
+} mtig_raw_t;
 
 #pragma pack(pop)
 
