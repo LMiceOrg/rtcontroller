@@ -32,50 +32,46 @@ PRE BID MID LEN DATA    CS
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
-#include <sys/time.h>
-#include <errno.h>
 
+#include <errno.h>
+#include <string.h>
+
+
+#if defined(__LINUX__)
+#define MTIG_DEVICE "/dev/ttyS1"
+#elif defined(__APPLE__)
+//#define MTIG_DEVICE "/dev/cu.usbserial-ftE00UTF"
+#define MTIG_DEVICE "/dev/cu.usbserial-ftE01UU0"
+
+#include <sys/time.h>
 /** for htonl */
 #include <arpa/inet.h>
-
 /** for Mti-G*/
-#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
-
 #include <pthread.h>
-
 #include <curses.h>
 
-#if defined(__LINUX__)
-#define MTIG_DEVICE "/dev/ttyS1"
-#else defined(__APPLE__)
-//#define MTIG_DEVICE "/dev/cu.usbserial-ftE00UTF"
-#define MTIG_DEVICE "/dev/cu.usbserial-ftE01UU0"
+#elif defined(__WIN32)
+#include <windows.h>
+#include <Winsock2.h>
+#pragma comment(lib, "Ws2_32.lib")
 #endif
 #define MTIG_BAUDRATE B115200
 
 
-#define buff_len 256
-#define mtig_package_len 75+4+1
+#define MTIG_BUFF_LEN 256
+#define MTIG_DATA_LEN sizeof(mtig_data_t)+4+1
 
-#pragma pack(push)
-#pragma pack(1)
-typedef struct {
-    uint32_t i32[18];
-    uint8_t i8;
-    uint16_t i16;
-} mtig_raw_t;
-#pragma pack(pop)
 
-static unsigned char mtig_buff[buff_len];
-static int wpos;
-static int rpos;
-static int state;
+static unsigned char mtig_buff[MTIG_BUFF_LEN];
+static int mtig_data_wpos;
+static int mtig_data_rpos;
+static int mtig_parse_state;
 static int mtig_thread_state;
 static mtig_data_t mtig_data;
 static volatile uint64_t mtig_data_lock;
@@ -89,7 +85,11 @@ int mtig_spin_lock()
     uint64_t locked = 1;
     while(locked == 0)
     {
+#if defined(__WIN32)
+        locked = InterlockedCompareExchange64(&mtig_data_lock, 1, 0);
+#else
         locked = __sync_val_compare_and_swap(&mtig_data_lock, 0, 1);
+#endif
     }
     return 0;
 }
@@ -169,7 +169,7 @@ void mtig_parse_data()
     int i;
     mtig_data_t *pdata;
     mtig_raw_t * praw;
-    unsigned char* p =mtig_buff+rpos;
+    unsigned char* p =mtig_buff+mtig_data_rpos;
 
 
 
@@ -241,50 +241,50 @@ void mtig_parse_data()
 
 
     /** reset pos */
-    int len = wpos - rpos - mtig_package_len;
+    int len = mtig_data_wpos - mtig_data_rpos - MTIG_DATA_LEN;
     if(pdata->sample_counter == 1) {
-        memcpy(mtig_buff, mtig_buff+rpos+mtig_package_len, len);
+        memcpy(mtig_buff, mtig_buff+mtig_data_rpos+MTIG_DATA_LEN, len);
     }
-    wpos = len;
-    rpos = 0;
-    state = 0;
+    mtig_data_wpos = len;
+    mtig_data_rpos = 0;
+    mtig_parse_state = 0;
 }
 
 void mtig_parse()
 {
 
-    unsigned char* p =mtig_buff+rpos;
+    unsigned char* p =mtig_buff+mtig_data_rpos;
 
-    if(state == 1)
+    if(mtig_parse_state == 1)
     {
-        if(wpos - rpos >= mtig_package_len)
+        if(mtig_data_wpos - mtig_data_rpos >= MTIG_DATA_LEN)
             mtig_parse_data();
         return;
     }
     /** only work when state is 0 and remaining data > 4 bytes */
-    else if( (wpos - rpos >= 4) )
+    else if( (mtig_data_wpos - mtig_data_rpos >= 4) )
     {
-        while(rpos <= wpos-4)
+        while(mtig_data_rpos <= mtig_data_wpos-4)
         {
             if(*((unsigned int*)p) == MTDATA_HEAD )
             {
-                state = 1;
+                mtig_parse_state = 1;
                 break;
             }
-            rpos ++;
+            mtig_data_rpos ++;
             p ++;
         }
 
         /** parse head failed so reset rpos */
-        if(state == 0)
+        if(mtig_parse_state == 0)
         {
-            if(rpos > 3)
-                rpos -= 3;
+            if(mtig_data_rpos > 3)
+                mtig_data_rpos -= 3;
             else
-                rpos = 0;
+                mtig_data_rpos = 0;
             return;
         }
-        else if(state == 1 && wpos - rpos >= mtig_package_len )
+        else if(mtig_parse_state == 1 && mtig_data_wpos - mtig_data_rpos >= MTIG_DATA_LEN )
         {
             //printf("parse data\n");
             mtig_parse_data();
@@ -308,8 +308,8 @@ void mtig_test()
         return;
     }
     printf("open Mti-G fd %d\n", mtig_fd);
-    rpos = 0;
-    wpos = 0;
+    mtig_data_rpos = 0;
+    mtig_data_wpos = 0;
     //    ts1.tv_sec = 0;
     //    ts1.tv_nsec = 10*1000000L;
 
@@ -318,15 +318,15 @@ void mtig_test()
     while(1)
     {
         //printf("reading...");
-        ret = read(mtig_fd, mtig_buff+wpos, buff_len - wpos);
+        ret = read(mtig_fd, mtig_buff+mtig_data_wpos, MTIG_BUFF_LEN - mtig_data_wpos);
         if(ret == -1) {
             printf("\nread [%d] err[%d]\n", ret, errno);
             return;
         }
         //printf(" %d bytes\n", ret);
-        wpos += ret;
+        mtig_data_wpos += ret;
         mtig_parse();
-        if(wpos >200)
+        if(mtig_data_wpos >200)
             break;
         if(mtig_thread_state == 1)
             break;
@@ -356,29 +356,10 @@ void mtig_thread_stop()
     }
 }
 
-//#if defined(CONSOLE_DEBUG_MODE)
-#include "control_config.h"
+#if defined(CONSOLE_DEBUG_MODE)
 int main()
 {
-    control_config_t cfg;
-    int i;
-    load_config("cfg.json", &cfg);
-    printf("cfg loaded\narea count=%d\n", cfg.area_count);
-    for(i=0; i<cfg.area_count; ++i)
-    {
-        printf("area [%d]: \tleft top x=%lf, y=%lf, z=%lf\n\t\tright buttom"
-               "x=%lf, y=%lf, z=%lf\n\n",
-               i, cfg.area[i].lt.x,cfg.area[i].lt.y,cfg.area[i].lt.z,
-               cfg.area[i].rb.x,cfg.area[i].rb.y,cfg.area[i].rb.z);
-    }
-    printf("time period is %d\n", cfg.time_period);
-    printf("picture store path is %s\n", cfg.pic_path);
-    printf("There are %d channel\n", cfg.channel_count);
-    for(i=0; i< cfg.channel_count; ++i)
-    {
-        printf("channel [%d]\t net device name :%s\n", i, cfg.net_device[i].name);
-    }
-    //return 0;
+
     mtig_thread_start();
     sleep(2);
 
@@ -406,4 +387,4 @@ int main()
     return 0;
 }
 
-//#endif /** CONSOLE_DEBUG_MODE */
+#endif /** CONSOLE_DEBUG_MODE */
