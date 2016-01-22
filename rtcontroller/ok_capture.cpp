@@ -1,11 +1,22 @@
 #include "ok_capture.h"
+#include <iostream>
+#include <string.h>
+
+LPBITMAPINFOHEADER	lpbi;
+LPBYTE				lpdib;
+LPSTR				lpMemory;
+static int totalframe = 0;
+static int elapsed = 0;
 
 Ok_capture::Ok_capture()
 {
-    mBufRgbFrom = 0; //缓存RGB格式
     lParam = 0x3;
-    Board = 0;
-    iIndex = 0;
+    iIndex = -1;
+    hInstLibrary = LoadLibraryA("okapi32");
+    if (hInstLibrary == NULL) {
+        printf("Error load okapi32.DLL!\n");
+        FreeLibrary(hInstLibrary);
+    }
     hBoard=OpenCard(lpbi, lpdib, lpMemory, iIndex);
     while (hBoard == 0) {
         printf("Wrong detect OK Board!\n");
@@ -15,12 +26,20 @@ Ok_capture::Ok_capture()
     printf("Initial Success!\n");
 }
 
-long Ok_capture::GetTargetSize(HANDLE hBoard, TARGET tgt, short *width, short *height)
+Ok_capture::~Ok_capture()
+{
+    if (hInstLibrary != NULL) {
+        FreeLibrary(hInstLibrary);
+    }
+    std::cout<<"GOOD BYE!"<<std::endl;
+}
+
+long GetTargetSize(HANDLE hBoard, TARGET tgt, short *width, short *height)
 {
     RECT	rect;
     long	form;
 
-    SetRect(&rect,0,0,1280,1024);   //Change the Imagine size
+    //SetRect(&rect,0,0,1280,1024);   //Change the Imagine size
     if( (tgt==SCREEN ) ||(tgt==BUFFER) ) {
       //  rect.right=-1;
         okSetTargetRect(hBoard,tgt,&rect); //get current rect
@@ -50,7 +69,7 @@ long Ok_capture::GetTargetSize(HANDLE hBoard, TARGET tgt, short *width, short *h
     return form;
 }
 
-long Ok_capture::SetBitmapHeader(LPBITMAPINFOHEADER lpbi,short width,short height, short bits, short form)
+long SetBitmapHeader(LPBITMAPINFOHEADER lpbi,short width,short height, short bits, short form)
 {
     long	wbytes;
 
@@ -110,7 +129,7 @@ long Ok_capture::SetBitmapHeader(LPBITMAPINFOHEADER lpbi,short width,short heigh
     return lpbi->biClrUsed;
 }
 
-BOOL Ok_capture::GetBitmapHeader(HANDLE hBoard, TARGET src, LPBITMAPINFOHEADER lpbi)
+long GetBitmapHeader(HANDLE hBoard, TARGET src, LPBITMAPINFOHEADER lpbi)
 {
     short		width,height;
     long		form;
@@ -125,32 +144,43 @@ BOOL Ok_capture::GetBitmapHeader(HANDLE hBoard, TARGET src, LPBITMAPINFOHEADER l
     return LOWORD(form);
 }
 
-BOOL CALLBACK Ok_capture::EndCapture(HANDLE hBoard)
+BOOL CALLBACK EndCapture(HANDLE hBoard)
 {
     okSetSeqCallback(hBoard, NULL, NULL, NULL);
     return 0;
 }
 
-BOOL CALLBACK Ok_capture::Process(HANDLE hBoard,MLONG no)
+BOOL CALLBACK Process(HANDLE hBoard,MLONG no)
 {
 
-    char szFileName[128]="Image.bmp"; //Image name!
+    int i, loop = 0, dt[10], frame = no;
+    char szFileName[128] = "Image",tail[10] = ".bmp"; //
+    while (frame > 0) {
+        dt[loop] = frame % 10 ;
+        frame = frame / 10;
+        loop ++;
+    }
+    for (i=0; i<loop; i++) {
+        szFileName[5+i] = dt[loop-i-1] + '0';
+    }
+    szFileName[loop+5] = '\0';
+    strcat(szFileName, tail);
     // Image rate
     if ((totalframe>=12) ||  ((okGetTickCount()-elapsed)>2000)&&(totalframe>=2)) {
-        elapsed=okGetTickCount()-elapsed;
+        elapsed=okGetTickCount() - elapsed;
         printf("Running time = %lf\n",((float)totalframe*1000/elapsed));
     }
     okSaveImageFile(hBoard, szFileName, 0, BUFFER, no, 1);
-    if(totalframe == 0) elapsed=okGetTickCount();
+    if(totalframe == 0) elapsed= okGetTickCount();
     printf("Save Success %d images!!\n", totalframe);
     totalframe++; //总采集帧数
     return 0;
 }
 
-BOOL CALLBACK Ok_capture::BeginCapture(HANDLE hBoard)
+BOOL CALLBACK BeginCapture(HANDLE hBoard)
 {
     short		width,height;
-    long		blkform;
+    long		blkform,bufform;
     BLOCKINFO	blk;
   // if(bDispToScreen) {
             bufform=GetTargetSize(hBoard, BUFFER, &width, &height);
@@ -160,7 +190,7 @@ BOOL CALLBACK Ok_capture::BeginCapture(HANDLE hBoard)
             }
             else //take same bits as buffer
                 blkform=bufform;
-            SetBitmapHeader(lpbi1, width, height, HIWORD(blkform), LOWORD(blkform) );
+                SetBitmapHeader(lpbi, width, height, HIWORD(blkform), LOWORD(blkform) );
       //  }
 
         blk.lpBits=lpdib;
@@ -169,9 +199,9 @@ BOOL CALLBACK Ok_capture::BeginCapture(HANDLE hBoard)
 
         if( okSetCaptureParam(hBoard,CAPTURE_SAMPLEFIELD,-1)==0 ) //sample in field by field
             if( LOWORD(okSetVideoParam(hBoard,VIDEO_SIGNALTYPE,-1))==1 ) //interlace video
-                lpbi1->biHeight*=2; //double size for ht
+                lpbi->biHeight*=2; //double size for ht
 
-        blk.iHeight=-(short)lpbi1->biHeight; //note: minus is for invert dib in y by ConvertRect
+        blk.iHeight=-(short)lpbi->biHeight; //note: minus is for invert dib in y by ConvertRect
 
         elapsed=GetTickCount();
        // totalframe=0;
@@ -179,7 +209,7 @@ BOOL CALLBACK Ok_capture::BeginCapture(HANDLE hBoard)
         return 1;
 }
 
-HANDLE Ok_capture::OpenCard(LPBITMAPINFOHEADER lpbi,LPBYTE lpdib,LPSTR lpMemory,MLONG iIndex)
+HANDLE OpenCard(LPBITMAPINFOHEADER lpbi,LPBYTE lpdib,LPSTR lpMemory,MLONG iIndex)
 {
 
     HANDLE hBoard;
@@ -224,12 +254,37 @@ HANDLE Ok_capture::OpenCard(LPBITMAPINFOHEADER lpbi,LPBYTE lpdib,LPSTR lpMemory,
     return hBoard;
 }
 
-int Ok_capture::Callsave()
+int Ok_capture::Capture_single(int frame)
 {
+     int i, loop = 0, dt[10];
+     char szFileName[128] = "Image",tail[10] = ".bmp"; //
+     while (frame > 0) {
+         dt[loop] = frame % 10 ;
+         frame = frame / 10;
+         loop ++;
+     }
+     for (i=0; i<loop; i++) {
+         szFileName[5+i] = dt[loop-i-1] + '0';
+     }
+     szFileName[loop+5] = '\0';
+     strcat(szFileName, tail);
+     int ret = 0;
+     ret = okCaptureTo(hBoard,BUFFER,0,1); //单帧
+     if (ret > 0) {
+        printf("Single frame is Finished! \n"); //Success
+        okSaveImageFile(hBoard, szFileName, 0, BUFFER, 0, 1);
+     }
+      okStopCapture(hBoard);
+     //okStopCapture(hBoard);
+     return 0;
+}
 
+int Ok_capture::Capture_series()
+{
      okSetSeqCallback(hBoard, BeginCapture, Process, EndCapture);
-     printf("Endcapture! The max frame number is %d! \n",okCaptureTo(hBoard,BUFFER,0,-1)); //采集方式
+     printf("Endcapture! The max frame number is %d! \n",okCaptureTo(hBoard,BUFFER,0,-1)); //连续
      okStopCapture(hBoard);
      //okStopCapture(hBoard);
      return 0;
 }
+
