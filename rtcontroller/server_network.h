@@ -9,7 +9,7 @@
 class Servernetwork
 {
 public:
-    Servernetwork(SOCKET, SOCKADDR_IN, int);
+    Servernetwork(int); //give a port
     ~Servernetwork();
     int InitNetwork();
     int RunNetwork();

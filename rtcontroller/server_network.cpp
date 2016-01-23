@@ -3,13 +3,12 @@
 
 const char* Faultip = "ERROR 401 Occupied by other clients! Please wait!\n";
 const char* Acceptip = "Accpted 200 Please send instructions!\n";
+const char* Obtainins ="Accpted 300 Get your instruction!\n";
 const char* Wronginstrct = "ERROR 402 Undefined instructions!\n";
 const char* Okreturn = "Finished 201 Finished this set of instructions!\n";
 
-Servernetwork::Servernetwork(SOCKET sock, SOCKADDR_IN sockaddr, int port)
+Servernetwork::Servernetwork(int port)
 {
-    Connect_socket = sock;
-    Local_server = sockaddr;
     Port = port;
     running = 0;
 }
@@ -30,8 +29,7 @@ int Servernetwork::InitNetwork()
 0 ok!Run instructions
 1 check online ? if true, you can send instruction
 2 undefined instructions {3 Error with input angel}
-4 Busy
-5 Finish
+4 Finish
 */
 
 int Servernetwork::RunNetwork()
@@ -45,6 +43,7 @@ int Servernetwork::RunNetwork()
     Local_server.sin_addr.S_un.S_addr = INADDR_ANY; //inet_addr('0.0.0.0')
     int ret = bind(Connect_socket, (SOCKADDR*)&Local_server, addr_len);
     if (ret != 0) {
+        print("Binding Mistake!\n");
         return -1;          // Wrong binding
     }
     char recvBuf[50], sendBuf[50];
@@ -52,8 +51,10 @@ int Servernetwork::RunNetwork()
     ULONG lastip = 0;
 
     ret = -1;
+    CMPC07Controller CMP();
+    
     while (1) {
-        while (ret != -1) ret = recvfrom(Connect_socket,recvBuf, 50, 0, (SOCKADDR*)&fromip, &addr_len);
+        while (ret == -1) ret = recvfrom(Connect_socket,recvBuf, 50, 0, (SOCKADDR*)&fromip, &addr_len); //阻塞
         printf("%s\n", recvBuf);
         flag = Analyze_order(recvBuf, &axis, &angle);
         switch (flag) {
@@ -62,6 +63,7 @@ int Servernetwork::RunNetwork()
                sendto(Connect_socket, Faultip , strlen(Faultip)+1, 0, (SOCKADDR*)&fromip, addr_len);
                continue;
             }
+            canWork
             //move the camera;
             //obtain mtig
 
@@ -78,7 +80,8 @@ int Servernetwork::RunNetwork()
             sendto(Connect_socket, Wronginstrct, strlen(Wronginstrct)+1, 0, (SOCKADDR*)&fromip, addr_len);
             break;
         case 4:
-            sendto(Connect_socket, Wronginstrct, strlen(Wronginstrct)+1, 0, (SOCKADDR*)&fromip, addr_len);
+            sendto(Connect_socket, Okreturn, strlen(Okreturn)+1, 0, (SOCKADDR*)&fromip, addr_len);
+            running = 0;
             break;
 
         //Sleep(1000);
