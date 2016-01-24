@@ -5,7 +5,8 @@
 #pragma comment(lib, "ws2_32.lib")
 using namespace std;
 
-int port = 27073; //port
+int server_port = 27073; //port
+int local_port = 32145;
 int addr_len = sizeof(SOCKADDR);
 int nNetTimeout = 1000; //设置等待超时1秒
 
@@ -45,13 +46,13 @@ int main()
     SOCKET sockClient = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP); //UDP
 
     Turn_on_broadcast(sockClient, true); //打开广播
-    setsockopt(sockClient, SOL_SOCKET, SO_RCVTIMEO, (char *)&nNetTimeout,sizeof(int));
+    setsockopt(sockClient, SOL_SOCKET, SO_RCVTIMEO, (char *)&nNetTimeout,sizeof(int)); //阻塞时间
     //setsockopt(s,IPPROTO_IP,IP_MULTICAST_LOOP,(char *)&optval,sizeof(int));
 
     SOCKADDR_IN client_send, client_receive, fromip;
     //接收套接字
     client_receive.sin_family = AF_INET;
-    client_receive.sin_port = htons(port);             //接受端口
+    client_receive.sin_port = htons(local_port);             //接受端口
     client_receive.sin_addr.s_addr = INADDR_ANY;
     //绑定
     ret = bind(sockClient, (SOCKADDR*)&client_receive, addr_len);
@@ -62,11 +63,11 @@ int main()
     //发送套接字
     client_send.sin_addr.S_un.S_addr = INADDR_BROADCAST;
     client_send.sin_family = AF_INET;
-    client_send.sin_port = htons(32145);      //发送端口 客户端端口
+    client_send.sin_port = htons(server_port);      //发送端口 客户端端口
 
     //发送上线提醒
     ret = -1;
-    char recvBuf[40], instructions[30] , *retstring;
+    char recvBuf[70], instructions[30] , *retstring;
     while (1) {
         sendto(sockClient,"IM on", 6, 0, (SOCKADDR *)&client_send, addr_len);
         while (ret == -1) {
@@ -78,8 +79,9 @@ int main()
                 return 0;
             }
         }
-        printf("Receive %d bytes/n", ret);
-        if (strsub(recvBuf, "Accpted 200") != 0) break;
+        printf("Receive %d bytes\n", ret);
+        if (strsub(recvBuf, "Accepted 200") != 0) break;
+        if (strsub(recvBuf, "Accepted 400") != 0) break;
     }
     Turn_on_broadcast(sockClient, false);
 
@@ -90,7 +92,7 @@ int main()
         cin.getline(instructions, 30);
         sendto(sockClient, instructions, strlen(instructions)+1, 0, (SOCKADDR *)&fromip, addr_len); //发出指令
         while (ret == -1) {
-            ret = recvfrom(sockClient, recvBuf, 40, 0, (SOCKADDR*)&fromip, &addr_len); //阻塞方式 指令相应
+            ret = recvfrom(sockClient, recvBuf, 50, 0, (SOCKADDR*)&fromip, &addr_len); //阻塞方式 指令相应
             Sleep(1000);
             ++ totalwaits;
             if (totalwaits > 20) {
@@ -98,8 +100,12 @@ int main()
                 return 0;
             }
         }
-        printf("Receive %d bytes/n", ret);
-        if (strsub(recvBuf, "Accpted 300") != 0) break;
+        printf("Receive %d bytes\n", ret);
+        printf("%s", recvBuf);
+        if (strsub(recvBuf, "ERROR 403") != 0) break;
+        if (strsub(recvBuf, "Finished 200") != 0) break;
+        if (strsub(recvBuf, "ERROR 401") != 0) Sleep(5000);
+        ret = -1;
     }
 
 //    recv(sockClient, recvBuf, 100, 0);

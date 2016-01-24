@@ -5,7 +5,7 @@
 #include "mpc07.h"
 
 #if defined(_WIN32)
-#include <WinBase.h>
+#include <Windows.h>
 #pragma comment(lib, "Kernel32.lib")
 #else
 #include <unistd.h>
@@ -81,7 +81,7 @@ mpc_error CMPC07Controller::canWork()
         break;
     }
 
-    return ret;
+    return (mpc_error)ret;
 }
 
 mpc_error CMPC07Controller::stop()
@@ -114,7 +114,7 @@ mpc_error CMPC07Controller::work(double x, double y)
 int CMPC07Controller::LoadDllFun()
 {
     int ret = MPCE_SUCCESS;
-    hDLL = LoadLibraryA("MPC07");	//加载mpc07.dll
+    hDLL = LoadLibraryA("../bin/MPC07.dll");	//加载mpc07.dll
 	if (hDLL != NULL)
 	{
 		///////////////////////////////////////////////////////////
@@ -281,8 +281,8 @@ int CMPC07Controller::CheckWork()
     double now = TimeNow();
     get_rel_pos(1, &xpos);
     get_rel_pos(2, &ypos);
-    if((fabs(xpos - xpuls) <delta &&
-            fasb(ypos - ypuls) < delta) ||
+    if((fabs((double)(xpos - xpuls)) <delta &&
+            fabs((double)(ypos - ypuls)) < delta) ||
         ( now - beginTime < duration ) ) {
         //Ok
         AfterAWhile();

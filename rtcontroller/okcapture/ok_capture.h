@@ -1,7 +1,7 @@
 #ifndef OK_CAPTURE_H
 #define OK_CAPTURE_H
 #include <Windows.h>
-#include <Okapi64.h>
+#include <okcapture/Okapi64.h>
 
 class Ok_capture
 {

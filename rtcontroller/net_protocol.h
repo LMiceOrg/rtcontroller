@@ -8,10 +8,11 @@
 //enum Net
 //find the first appearance
 int equal(char , char );
+
 char *strsub(char*, char *);
 
 //send the response to the target addr
-char *Response();
+//char *Response();
 
 //obtain the axis & angle
 /*for return values :

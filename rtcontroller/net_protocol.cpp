@@ -19,10 +19,6 @@ char *strsub(char* source, const char *sub)
     return 0;
 }
 
-char *Response()
-{
-
-}
 
 /*obtain the angle, axis
 0 ok!Run instructions
@@ -37,26 +33,27 @@ int Analyze_order(char *instruct, int *axis, int *angle)
     int num = 0;
     char *temp;
     if ((temp = strsub(instruct, "GO")) != 0) {
-        temp += 1;
-        while (*temp != '\0'&& *temp++ == ' ');
+        temp += 2;
+        while (*temp != '\0'&& *temp == ' ') temp++;
         if (*temp == 'x'|| *temp == 'X') *axis=0;
            else if (*temp == 'y'|| *temp == 'Y') *axis=1;
             else if (*temp == 'z'|| *temp == 'Z') *axis=2;
              else return 2;
         temp += 1;
-        while (*temp != '\0'&& *temp++ == ' ');
+        while (*temp != '\0'&& *temp == ' ') temp++;
         while (*temp >= '0' && *temp <= '9') {
             num = num*10 + (*temp - '0');
             if (num > 36000) return 3;
+            temp ++;
         }
         *angle = num;
         return 0;
     }
     if ((temp = strsub(instruct, "IM")) != 0) {
-        temp += 1;
-        while (*temp != '\0'&& *temp++ == ' ');
+        temp += 2;
+        while (*temp != '\0'&& *temp == ' ') temp++;
         if ((*temp == 'O' || *temp == 'o') &&
-           (*(temp + 1) == 'K' || *(temp + 1) == 'k'))
+           (*(temp + 1) == 'N' || *(temp + 1) == 'n'))
             return 1;
     }
     if ((temp = strsub(instruct, "finished")) != 0) {

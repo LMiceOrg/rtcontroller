@@ -3,16 +3,16 @@
 #include <string.h>
 
 LPBITMAPINFOHEADER	lpbi;
-LPBYTE				lpdib;
-LPSTR				lpMemory;
+LPBYTE			lpdib;
+LPSTR			lpMemory;
 static int totalframe = 0;
-static int elapsed = 0;
+static unsigned int elapsed = 0;
 
 Ok_capture::Ok_capture()
 {
     lParam = 0x3;
     iIndex = -1;
-    hInstLibrary = LoadLibraryA("okapi32");
+    hInstLibrary = LoadLibraryA("okapi64.dll");
     if (hInstLibrary == NULL) {
         printf("Error load okapi32.DLL!\n");
         FreeLibrary(hInstLibrary);
