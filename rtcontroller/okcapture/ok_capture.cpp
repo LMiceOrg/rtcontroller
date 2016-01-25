@@ -11,12 +11,14 @@ static unsigned int elapsed = 0;
 Ok_capture::Ok_capture()
 {
     lParam = 0x3;
+    OKDEVTYPE *lpOkDevInfo;
     iIndex = -1;
     hInstLibrary = LoadLibraryA("okapi64.dll");
     if (hInstLibrary == NULL) {
         printf("Error load okapi32.DLL!\n");
         FreeLibrary(hInstLibrary);
     }
+    okGetImageDevice(&lpOkDevInfo, (LPARAM)&lParam);
     hBoard=OpenCard(lpbi, lpdib, lpMemory, iIndex);
     while (hBoard == 0) {
         printf("Wrong detect OK Board!\n");
@@ -39,7 +41,7 @@ long GetTargetSize(HANDLE hBoard, TARGET tgt, short *width, short *height)
     RECT	rect;
     long	form;
 
-    //SetRect(&rect,0,0,1280,1024);   //Change the Imagine size
+    SetRect(&rect,0,0,1280,1024);   //Change the Imagine size
     if( (tgt==SCREEN ) ||(tgt==BUFFER) ) {
       //  rect.right=-1;
         okSetTargetRect(hBoard,tgt,&rect); //get current rect
@@ -268,13 +270,13 @@ int Ok_capture::Capture_single(int frame)
      }
      szFileName[loop+5] = '\0';
      strcat(szFileName, tail);
-     int ret = 0;
-     ret = okCaptureTo(hBoard,BUFFER,0,1); //单帧
-     if (ret > 0) {
-        printf("Single frame is Finished! \n"); //Success
-        okSaveImageFile(hBoard, szFileName, 0, BUFFER, 0, 1);
-     }
-      okStopCapture(hBoard);
+
+     okCaptureSingle(hBoard, BUFFER, 0);
+     okGetCaptureStatus(hBoard, 1);
+
+     printf("Single frame is Finished! \n"); //Success
+     okSaveImageFile(hBoard, szFileName, 0, BUFFER, 0, 1);
+     okStopCapture(hBoard);
      //okStopCapture(hBoard);
      return 0;
 }
@@ -282,7 +284,7 @@ int Ok_capture::Capture_single(int frame)
 int Ok_capture::Capture_series()
 {
      okSetSeqCallback(hBoard, BeginCapture, Process, EndCapture);
-     printf("Endcapture! The max frame number is %d! \n",okCaptureTo(hBoard,BUFFER,0,-1)); //连续
+     printf("Endcapture! The max frame number is %d! \n",okCaptureTo(hBoard,BUFFER, 0,-1)); //连续
      okStopCapture(hBoard);
      //okStopCapture(hBoard);
      return 0;

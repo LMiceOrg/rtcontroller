@@ -17,7 +17,7 @@ HEADERS += \
     okcapture/ok_capture.h \
     okcapture/Okapi64.h
 
-
+LIBS += -lUser32
 #INCLUDEPATH += D:/Program Files/pyth/include \
 
 #LIBS += -LD:/Program Files/pyth/libs -lpython27
