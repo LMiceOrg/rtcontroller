@@ -1,5 +1,6 @@
 #include "server_network.h"
 #include <iostream>
+#include <net_protocol.h>
 
 const char* Faultip = "ERROR 401 Occupied by other clients! Please wait!\n";
 const char* Acceptip = "Accepted 200 Please send instructions!\n";
@@ -35,7 +36,9 @@ Servernetwork::~Servernetwork()
 
 int Servernetwork::Judge(int flag, SOCKADDR_IN fromip, CMPC07Controller *CMP, int axis, int angle)
 {
-    int ret;
+    int ret, bytes ,iMode;//0 == block， 1 == non-block
+    FILE *picfd;
+    char buf[128];
     switch (flag) {
     case 0:
         if (fromip.sin_addr.S_un.S_addr != lastip) {
@@ -43,11 +46,34 @@ int Servernetwork::Judge(int flag, SOCKADDR_IN fromip, CMPC07Controller *CMP, in
            break;
         }
         elapsed = 0;
-        ret = CMP->canWork();
-        printf("%d\n", ret);
-        CMP->work(angle,0);
-
-        sendto(Connect_socket,Obtainins , strlen(Obtainins)+1, 0, (SOCKADDR*)&fromip, addr_len);
+        //printf("%d\n", ret);
+        if (axis == 0) ret = CMP->work(angle, 0);
+        if (axis == 1) ret = CMP->work(0, angle);
+        //printf("%d\n", ret);
+        sendto(Connect_socket, Obtainins , strlen(Obtainins)+1, 0, (SOCKADDR*)&fromip, addr_len);
+        iMode = 1;
+        ioctlsocket(Connect_socket, FIONBIO, (u_long FAR*) &iMode);
+        ret = -1;
+        while (CMP->canWork() == MPCE_EWORKING) {
+            ret = recvfrom(Connect_socket, buf, 50, 0, (SOCKADDR*)&fromip, &addr_len);
+            Sleep(1000);
+            if (ret != -1 ) return 0; //&& strsub(buf, "Stop") != NULL
+        }
+        iMode = 0;
+        ioctlsocket(Connect_socket, FIONBIO, (u_long FAR*) &iMode);
+        Sleep(5000);
+        picfd=fopen("image1.bmp","rb");
+        bytes=1;
+        while (1) {
+            bytes = fread(buf, 1, 50, picfd);
+            //bytes = read(handle,buf,30);
+            if (bytes == 0) break;
+            sendto(Connect_socket, buf, 50, 0, (SOCKADDR*)&fromip, addr_len);
+            Sleep(100);
+            //fwrite(buf, 50 , 1, tofd);
+            //printf("%s\n",buf);
+        }
+        fclose(picfd);
         //move the camera;
         //obtain mtig
         break;
@@ -85,8 +111,10 @@ int Servernetwork::Judge(int flag, SOCKADDR_IN fromip, CMPC07Controller *CMP, in
         sendto(Connect_socket, TLE, strlen(TLE)+1, 0, (SOCKADDR*)&fromip, addr_len);
         running = 0;
         break;
+    case 6:
 
-    //Sleep(1000);
+        break;
+            //Sleep(1000);
     }
     return 0;
 }

@@ -67,7 +67,7 @@ int main()
 
     //发送上线提醒
     ret = -1;
-    char recvBuf[70], instructions[30] , *retstring;
+    char recvBuf[70], instructions[30] , recvpic[128];
     while (1) {
         sendto(sockClient,"IM on", 6, 0, (SOCKADDR *)&client_send, addr_len);
         while (ret == -1) {
@@ -88,6 +88,7 @@ int main()
     //输入指令集
     totalwaits = 0;
     ret = -1;
+    FILE *tofd;
     while (1) {
         cin.getline(instructions, 30);
         sendto(sockClient, instructions, strlen(instructions)+1, 0, (SOCKADDR *)&fromip, addr_len); //发出指令
@@ -102,6 +103,16 @@ int main()
         }
         printf("Receive %d bytes\n", ret);
         printf("%s", recvBuf);
+        if (strsub(recvBuf, "Accepted 300") != 0) {
+        /*    tofd = fopen("image.bmp","wb");
+            while (1) {
+             ret = recvfrom(sockClient, recvpic, 50, 0, (SOCKADDR*)&fromip, &addr_len);
+             fwrite(recvpic, 50 , 1, tofd);
+             if (ret < 50) break;
+            }
+            printf("Receive Successfully!\n");
+            fclose(tofd); */
+        }
         if (strsub(recvBuf, "ERROR 403") != 0) break;
         if (strsub(recvBuf, "Finished 200") != 0) break;
         if (strsub(recvBuf, "ERROR 401") != 0) Sleep(5000);
